@@ -1,5 +1,30 @@
 #!/bin/sh
 
+#working directory
+WORKING_DIR="$PWD"
+
+#
+#Check AWS Configuration File
+#
+if (file_exists "$configuration_file");then
+   export AWS_CONFIG_FILE=$configuration_file
+else
+  error_exit "Configuration file is missing"
+fi
+#
+#Check JQ JSON parser
+#
+jq_exists "$WORKING_DIR"
+
+
+###Main Command
+aws ec2 describe-instances --profile $profile --region $region | jq -r ".Reservations[] | .Instances [] | \
+[.InstanceId,.PublicIpAddress,(.Tags[] | select ((.Key | select( .=="\"Name"\"))=="\"Name"\") | .Value)] | \
+@csv" >"instances_$profile$region.txt"
+##aws ec2 describe-instances --profile $profile --region $region | jq -r ".Reservations[] | .Instances [] |.InstanceId,"\","\",.PublicIpAddress,"\","\",(.Tags[] | select ((.Key | select( .=="\"Name"\"))=="\"Name"\") | .Value),"\"n"\"" | sed 's/\"//g' >"instances_$profile$region.txt"
+
+
+
 
 ###################Functions################
 
@@ -64,23 +89,3 @@ function jq_exists
 }
 
 
-#######START
-WORKING_DIR="$PWD"
-
-#
-#Check AWS Configuration File
-#
-if (file_exists "$configuration_file");then
-   export AWS_CONFIG_FILE=$configuration_file
-else
-  error_exit "Configuration file is missing"
-fi
-#
-#Check JQ JSON parser
-#
-jq_exists "$WORKING_DIR"
-
-aws ec2 describe-instances --profile $profile --region $region | jq -r ".Reservations[] | .Instances [] | \
-[.InstanceId,.PublicIpAddress,(.Tags[] | select ((.Key | select( .=="\"Name"\"))=="\"Name"\") | .Value)] | \
-@csv" >"instances_$profile$region.txt"
-##aws ec2 describe-instances --profile $profile --region $region | jq -r ".Reservations[] | .Instances [] |.InstanceId,"\","\",.PublicIpAddress,"\","\",(.Tags[] | select ((.Key | select( .=="\"Name"\"))=="\"Name"\") | .Value),"\"n"\"" | sed 's/\"//g' >"instances_$profile$region.txt"
