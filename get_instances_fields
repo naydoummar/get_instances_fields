@@ -1,0 +1,90 @@
+#!/bin/sh
+
+
+###################Functions################
+
+###Usage
+function usage
+{
+ echo "usage: sh get_ec2_info.sh -f <filename>"
+}
+
+
+###Checks
+echo $#
+if [ $# -lt 6 ]
+then
+        usage
+        exit 1
+fi
+
+while [ "$1" != "" ]; do
+   case $1 in
+        -f | --file )                shift
+                                     configuration_file=$1
+				     ;;
+        -p | --profile )     shift
+                                     profile=$1
+                                     ;;
+	-r | --region )     shift
+                                     region=$1
+                                     ;;
+	* )                          usage
+                                     exit 1    
+    esac
+    shift
+done
+echo "4"
+
+###Function that handles error
+function error_exit
+{
+       ## write_to_logs "$1"
+	echo $1       
+	 exit 1
+}
+
+###Check if File exists
+function file_exists()
+{
+        [[ -f "$1" ]] && return 0 || return 1
+
+}
+
+
+
+WORKING_DIR="$PWD"
+
+#
+#Check AWS Configuration File
+#
+echo $configuration_file
+if (file_exists "$configuration_file");then
+   export AWS_CONFIG_FILE=$configuration_file
+else
+  error_exit "Configuration file is missing"
+fi
+
+
+###Check if jq exists (JSON parser)
+function jq_exists 
+{
+ WORKING_DIR=$1
+ JQ_CHECK=$(find $WORKING_DIR  -maxdepth 1 -type f \( -name jq \) )
+ if [ ! -z "${JQ_CHECK}" ] && [ -f $JQ_CHECK ];then
+        export PATH=${PATH}:$WORKING_DIR
+ else
+    write_to_logs "Downloading JQ"
+    wget http://stedolan.github.io/jq/download/linux64/jq
+    chmod +x ./jq
+    export PATH=${PATH}:$WORKING_DIR
+  fi
+}
+
+#
+#Check JQ JSON parser
+#
+jq_exists "$WORKING_DIR"
+
+aws ec2 describe-instances --profile $profile --region $region | jq -r ".Reservations[] | .Instances [] | [.InstanceId,.PublicIpAddress,(.Tags[] | select ((.Key | select( .=="\"Name"\"))=="\"Name"\") | .Value)] | @csv" >"instances_$profile$region.txt"
+##aws ec2 describe-instances --profile $profile --region $region | jq -r ".Reservations[] | .Instances [] |.InstanceId,"\","\",.PublicIpAddress,"\","\",(.Tags[] | select ((.Key | select( .=="\"Name"\"))=="\"Name"\") | .Value),"\"n"\"" | sed 's/\"//g' >"instances_$profile$region.txt"
