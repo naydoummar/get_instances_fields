@@ -10,8 +10,7 @@ function usage
 }
 
 
-###Checks
-echo $#
+###Checks parameters
 if [ $# -lt 6 ]
 then
         usage
@@ -34,12 +33,10 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
-echo "4"
 
 ###Function that handles error
 function error_exit
 {
-       ## write_to_logs "$1"
 	echo $1       
 	 exit 1
 }
@@ -50,21 +47,6 @@ function file_exists()
         [[ -f "$1" ]] && return 0 || return 1
 
 }
-
-
-
-WORKING_DIR="$PWD"
-
-#
-#Check AWS Configuration File
-#
-echo $configuration_file
-if (file_exists "$configuration_file");then
-   export AWS_CONFIG_FILE=$configuration_file
-else
-  error_exit "Configuration file is missing"
-fi
-
 
 ###Check if jq exists (JSON parser)
 function jq_exists 
@@ -81,10 +63,24 @@ function jq_exists
   fi
 }
 
+
+#######START
+WORKING_DIR="$PWD"
+
+#
+#Check AWS Configuration File
+#
+if (file_exists "$configuration_file");then
+   export AWS_CONFIG_FILE=$configuration_file
+else
+  error_exit "Configuration file is missing"
+fi
 #
 #Check JQ JSON parser
 #
 jq_exists "$WORKING_DIR"
 
-aws ec2 describe-instances --profile $profile --region $region | jq -r ".Reservations[] | .Instances [] | [.InstanceId,.PublicIpAddress,(.Tags[] | select ((.Key | select( .=="\"Name"\"))=="\"Name"\") | .Value)] | @csv" >"instances_$profile$region.txt"
+aws ec2 describe-instances --profile $profile --region $region | jq -r ".Reservations[] | .Instances [] | \
+[.InstanceId,.PublicIpAddress,(.Tags[] | select ((.Key | select( .=="\"Name"\"))=="\"Name"\") | .Value)] | \
+@csv" >"instances_$profile$region.txt"
 ##aws ec2 describe-instances --profile $profile --region $region | jq -r ".Reservations[] | .Instances [] |.InstanceId,"\","\",.PublicIpAddress,"\","\",(.Tags[] | select ((.Key | select( .=="\"Name"\"))=="\"Name"\") | .Value),"\"n"\"" | sed 's/\"//g' >"instances_$profile$region.txt"
